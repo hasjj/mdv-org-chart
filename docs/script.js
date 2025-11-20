@@ -1,4 +1,4 @@
-const API_BASE = "https://script.google.com/a/macros/modigence.com/s/AKfycbxm9uGPc4oxk8_9tkChDlpNM_QmhrX0jp3zq5q5d4ZtYxAwz-fxYF8-_hf1GoYB2wgu/exec";
+const API_BASE = "https://script.google.com/macros/s/AKfycbxm9uGPc4oxk8_9tkChDlpNM_QmhrX0jp3zq5q5d4ZtYxAwz-fxYF8-_hf1GoYB2wgu/exec";
 
 const EMP_API = `${API_BASE}?tab=employees`;
 const HIRING_API = `${API_BASE}?tab=hiring`;
