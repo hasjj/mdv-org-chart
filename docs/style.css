@@ -41,3 +41,37 @@ h1 {
   color: #555;
   line-height: 1.4;
 }
+
+.dept {
+  margin-bottom: 32px;
+}
+
+.dept-title {
+  font-size: 16px;
+  margin: 16px 0 8px;
+}
+
+.tree {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.node {
+  margin: 8px 16px 8px 0;
+}
+
+.children {
+  margin-left: 32px;
+  margin-top: 8px;
+  padding-left: 16px;
+  border-left: 1px dashed #ddd;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 카드 안에서 라인 간격 조금 정리 */
+.card-line {
+  margin-bottom: 2px;
+}
