@@ -25,132 +25,111 @@ async function loadData() {
   }
 }
 
-// orgUnitPath 기준으로 그룹키 추출
-// 예: "/HQ/StrategicPlanning" -> "HQ"
-//     "/" 또는 빈값 -> "기타"
-const GROUP_LEVEL = 1; // 0 = 첫 번째 세그먼트 기준 (원하면 나중에 1,2 로 바꿀 수 있음)
-
-function getOrgGroupKey(orgUnitPath) {
-  if (!orgUnitPath || orgUnitPath === "/") return "기타";
+// orgUnitPath를 레벨별로 분해해서 상위/하위 그룹 이름을 뽑는 헬퍼
+// 예: "/CEO/Strategic Planning" -> { level1: "CEO", level2: "Strategic Planning" }
+//     "/CEO" -> { level1: "CEO", level2: "" }
+//     "/" 또는 빈 값 -> { level1: "기타", level2: "" }
+function parseOrgPath(orgUnitPath) {
+  if (!orgUnitPath || orgUnitPath === "/") {
+    return { level1: "기타", level2: "" };
+  }
   const segments = orgUnitPath.split("/").filter(Boolean);
-  if (!segments.length) return "기타";
-  return segments[Math.min(GROUP_LEVEL, segments.length - 1)];
+  if (!segments.length) {
+    return { level1: "기타", level2: "" };
+  }
+  const level1 = segments[0] || "기타";
+  const level2 = segments[1] || "";
+  return { level1, level2 };
 }
 
-/**
- * employees : 실제 구성원
- * hiring    : 채용 포지션
- *
- * 1) managerEmail 로 상하 관계를 구성
- * 2) employees 를 email 기준으로 트리로 만들고,
- * 3) hiring 은 해당 manager 의 children 아래에 붙임
- */
-function buildHierarchy(employees, hiring) {
-  const empByEmail = new Map();
-
-  // 노드 초기화
-  employees.forEach((e) => {
-    empByEmail.set(e.email, {
-      ...e,
-      children: [],
-      hiringChildren: [],
-      _attached: false,
-    });
-  });
-
-  // 직원들 사이 상하관계 연결
-  empByEmail.forEach((node) => {
-    const mgrEmail = node.managerEmail;
-    if (mgrEmail && empByEmail.has(mgrEmail)) {
-      const mgr = empByEmail.get(mgrEmail);
-      mgr.children.push(node);
-      node._attached = true;
-    }
-  });
-
-  // Hiring 포지션을 매니저 밑에 붙이기
-  hiring.forEach((h) => {
-    const mgrEmail = h.managerEmail;
-    const mgr = mgrEmail && empByEmail.get(mgrEmail);
-    if (mgr) {
-      mgr.hiringChildren.push(h);
-    }
-  });
-
-  // 루트(상위 매니저가 없거나 도메인 밖인 사람들)
-  const roots = [];
-  empByEmail.forEach((node) => {
-    if (!node._attached) {
-      roots.push(node);
-    }
-  });
-
-  return { roots, empByEmail };
-}
-
+// orgUnitPath 기준 계층 + 그룹만 사용해서 렌더링
+// - level1: 예) CEO, HQ ... → 최상위 섹션 라벨
+// - level2: 예) Strategic Planning, R&D ... → 섹션 안의 그룹 라벨
+// managerEmail은 아직 계층 종속에 사용하지 않음
 function renderOrgChart(employees, hiring) {
   const container = document.getElementById("org-chart");
   if (!container) return;
 
-  const { roots } = buildHierarchy(employees, hiring);
+  // employees + hiring 을 하나의 리스트로 묶고 org 정보 주입
+  const items = [
+    ...employees.map((e) => ({
+      ...e,
+      isHiring: false,
+      ...parseOrgPath(e.orgUnitPath),
+    })),
+    ...hiring.map((h) => ({
+      ...h,
+      isHiring: true,
+      ...parseOrgPath(h.orgUnitPath),
+    })),
+  ];
 
-  // 🔁 기존: department 기준 → 변경: orgUnitPath 기준
-  const groupMap = new Map();
-  roots.forEach((root) => {
-    const key = getOrgGroupKey(root.orgUnitPath); // orgUnitPath에서 그룹 이름 추출
-    if (!groupMap.has(key)) groupMap.set(key, []);
-    groupMap.get(key).push(root);
+  // 1단계: level1(예: CEO) 기준으로 그룹핑
+  const level1Map = new Map();
+  items.forEach((item) => {
+    const key = item.level1;
+    if (!level1Map.has(key)) level1Map.set(key, []);
+    level1Map.get(key).push(item);
   });
 
-  const groupNames = Array.from(groupMap.keys()).sort();
+  const level1Keys = Array.from(level1Map.keys()).sort();
 
-  const html = groupNames
-    .map((groupName) => {
-      const rootsInGroup = groupMap.get(groupName) || [];
-      const treesHtml = rootsInGroup.map((r) => renderNode(r));
+  const html = level1Keys
+    .map((level1) => {
+      const itemsAtL1 = level1Map.get(level1) || [];
+
+      // level2가 없는 사람들(/CEO만 가진 사람들)은 섹션 상단에 배치
+      const topLevel = [];
+      const level2Map = new Map();
+
+      itemsAtL1.forEach((item) => {
+        if (!item.level2) {
+          topLevel.push(item);
+        } else {
+          const key2 = item.level2;
+          if (!level2Map.has(key2)) level2Map.set(key2, []);
+          level2Map.get(key2).push(item);
+        }
+      });
+
+      // 이름 기준 정렬 (optional)
+      const sortByName = (a, b) => (a.name || "").localeCompare(b.name || "");
+      topLevel.sort(sortByName);
+
+      const topRowHtml = topLevel.length
+        ? `<div class="tree root-row">${topLevel
+            .map((it) => cardHTML(it, it.isHiring))
+            .join("")}</div>`
+        : "";
+
+      const level2Keys = Array.from(level2Map.keys()).sort();
+      const groupsHtml = level2Keys
+        .map((level2) => {
+          const groupItems = level2Map.get(level2) || [];
+          groupItems.sort(sortByName);
+          const cards = groupItems
+            .map((it) => cardHTML(it, it.isHiring))
+            .join("");
+          return `
+            <div class="subgroup">
+              <h3 class="subgroup-title">${level2}</h3>
+              <div class="tree">${cards}</div>
+            </div>
+          `;
+        })
+        .join("");
+
       return `
         <section class="dept">
-          <h2 class="dept-title">${groupName}</h2>
-          <div class="tree">
-            ${treesHtml.join("")}
-          </div>
+          <h2 class="dept-title">${level1}</h2>
+          ${topRowHtml}
+          ${groupsHtml}
         </section>
       `;
     })
     .join("");
 
   container.innerHTML = html;
-}
-
-// 개별 직원 노드 + 자식들 렌더링
-function renderNode(node) {
-  const children = node.children || [];
-  const hiringChildren = node.hiringChildren || [];
-
-  const childrenHtml = [
-    ...children.map((c) => renderNode(c)),
-    ...hiringChildren.map((h) => renderHiringNode(h)),
-  ];
-
-  return `
-    <div class="node">
-      ${cardHTML(node, false)}
-      ${
-        childrenHtml.length
-          ? `<div class="children">${childrenHtml.join("")}</div>`
-          : ""
-      }
-    </div>
-  `;
-}
-
-// Hiring 노드는 한 단계짜리로만
-function renderHiringNode(h) {
-  return `
-    <div class="node">
-      ${cardHTML(h, true)}
-    </div>
-  `;
 }
 
 // 카드 UI (표시 정보)
