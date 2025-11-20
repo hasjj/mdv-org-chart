@@ -25,6 +25,18 @@ async function loadData() {
   }
 }
 
+// orgUnitPath 기준으로 그룹키 추출
+// 예: "/HQ/StrategicPlanning" -> "HQ"
+//     "/" 또는 빈값 -> "기타"
+const GROUP_LEVEL = 1; // 0 = 첫 번째 세그먼트 기준 (원하면 나중에 1,2 로 바꿀 수 있음)
+
+function getOrgGroupKey(orgUnitPath) {
+  if (!orgUnitPath || orgUnitPath === "/") return "기타";
+  const segments = orgUnitPath.split("/").filter(Boolean);
+  if (!segments.length) return "기타";
+  return segments[Math.min(GROUP_LEVEL, segments.length - 1)];
+}
+
 /**
  * employees : 실제 구성원
  * hiring    : 채용 포지션
@@ -82,23 +94,23 @@ function renderOrgChart(employees, hiring) {
 
   const { roots } = buildHierarchy(employees, hiring);
 
-  // 부서(department)별로 루트 그룹핑
-  const deptMap = new Map();
+  // 🔁 기존: department 기준 → 변경: orgUnitPath 기준
+  const groupMap = new Map();
   roots.forEach((root) => {
-    const dept = root.department || "기타";
-    if (!deptMap.has(dept)) deptMap.set(dept, []);
-    deptMap.get(dept).push(root);
+    const key = getOrgGroupKey(root.orgUnitPath); // orgUnitPath에서 그룹 이름 추출
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key).push(root);
   });
 
-  const deptNames = Array.from(deptMap.keys()).sort();
+  const groupNames = Array.from(groupMap.keys()).sort();
 
-  const html = deptNames
-    .map((dept) => {
-      const rootsInDept = deptMap.get(dept) || [];
-      const treesHtml = rootsInDept.map((r) => renderNode(r));
+  const html = groupNames
+    .map((groupName) => {
+      const rootsInGroup = groupMap.get(groupName) || [];
+      const treesHtml = rootsInGroup.map((r) => renderNode(r));
       return `
         <section class="dept">
-          <h2 class="dept-title">${dept}</h2>
+          <h2 class="dept-title">${groupName}</h2>
           <div class="tree">
             ${treesHtml.join("")}
           </div>
