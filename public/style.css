@@ -1,0 +1,43 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #fafafa;
+}
+
+h1 {
+  margin-bottom: 20px;
+  font-size: 20px;
+}
+
+#org-chart {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #ddd;
+  width: 260px;
+  padding: 14px;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.card.hiring {
+  border-color: #0070f3;
+  background: #f0f7ff;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.card-body {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.4;
+}
