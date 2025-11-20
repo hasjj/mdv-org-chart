@@ -64,72 +64,55 @@ function renderOrgChart(employees, hiring) {
     })),
   ];
 
-  // 1단계: level1(예: CEO) 기준으로 그룹핑
-  const level1Map = new Map();
-  items.forEach((item) => {
-    const key = item.level1;
-    if (!level1Map.has(key)) level1Map.set(key, []);
-    level1Map.get(key).push(item);
+  // CEO 레벨과 그 외 레벨 분리
+  const ceoItems = items.filter(
+    (it) => it.orgUnitPath === "/CEO" || it.level1 === "CEO"
+  );
+  const others = items.filter((it) => !ceoItems.includes(it));
+
+  // 기타 그룹: CEO를 제외한 나머지 level1 값 기준
+  const groupMap = new Map();
+  others.forEach((item) => {
+    const key = item.level1 || "기타";
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key).push(item);
   });
 
-  const level1Keys = Array.from(level1Map.keys()).sort();
+  const sortByName = (a, b) => (a.name || "").localeCompare(b.name || "");
+  ceoItems.sort(sortByName);
 
-  const html = level1Keys
-    .map((level1) => {
-      const itemsAtL1 = level1Map.get(level1) || [];
+  const groupNames = Array.from(groupMap.keys()).sort();
 
-      // level2가 없는 사람들(/CEO만 가진 사람들)은 섹션 상단에 배치
-      const topLevel = [];
-      const level2Map = new Map();
+  const ceoRowHtml = ceoItems.length
+    ? `<div class="tree root-row">${ceoItems
+        .map((it) => cardHTML(it, it.isHiring))
+        .join("")}</div>`
+    : "";
 
-      itemsAtL1.forEach((item) => {
-        if (!item.level2) {
-          topLevel.push(item);
-        } else {
-          const key2 = item.level2;
-          if (!level2Map.has(key2)) level2Map.set(key2, []);
-          level2Map.get(key2).push(item);
-        }
-      });
-
-      // 이름 기준 정렬 (optional)
-      const sortByName = (a, b) => (a.name || "").localeCompare(b.name || "");
-      topLevel.sort(sortByName);
-
-      const topRowHtml = topLevel.length
-        ? `<div class="tree root-row">${topLevel
-            .map((it) => cardHTML(it, it.isHiring))
-            .join("")}</div>`
-        : "";
-
-      const level2Keys = Array.from(level2Map.keys()).sort();
-      const groupsHtml = level2Keys
-        .map((level2) => {
-          const groupItems = level2Map.get(level2) || [];
-          groupItems.sort(sortByName);
-          const cards = groupItems
-            .map((it) => cardHTML(it, it.isHiring))
-            .join("");
-          return `
-            <div class="subgroup">
-              <h3 class="subgroup-title">${level2}</h3>
-              <div class="tree">${cards}</div>
-            </div>
-          `;
-        })
+  const groupsHtml = groupNames
+    .map((groupName) => {
+      const groupItems = groupMap.get(groupName) || [];
+      groupItems.sort(sortByName);
+      const cards = groupItems
+        .map((it) => cardHTML(it, it.isHiring))
         .join("");
-
       return `
-        <section class="dept">
-          <h2 class="dept-title">${level1}</h2>
-          ${topRowHtml}
-          ${groupsHtml}
-        </section>
+        <div class="subgroup">
+          <h3 class="subgroup-title">${groupName}</h3>
+          <div class="tree">${cards}</div>
+        </div>
       `;
     })
     .join("");
 
-  container.innerHTML = html;
+  container.innerHTML = `
+    <section class="dept dept-root">
+      <h2 class="dept-title dept-title-root">CEO</h2>
+      ${ceoRowHtml}
+      ${ceoItems.length && groupNames.length ? '<div class="root-connector"></div>' : ""}
+      <div class="child-groups">${groupsHtml}</div>
+    </section>
+  `;
 }
 
 // 카드 UI (표시 정보)
