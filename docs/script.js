@@ -109,7 +109,7 @@ function renderOrgNode(node, depth) {
   const groupEl = document.createElement('div');
   groupEl.className = 'org-group depth-' + (depth + 1);
 
-  // 그룹 헤더 (Level 표시 제거, 그룹 이름만)
+  // 그룹 헤더 (그룹 이름만)
   const headerEl = document.createElement('div');
   headerEl.className = 'org-group-header';
   const titleSpan = document.createElement('span');
@@ -151,7 +151,7 @@ function renderOrgNode(node, depth) {
 /**
  * 구성원 카드 생성
  * - 일반: name, title, email, cellphone
- * - Hiring: 이름 "채용 예정", 나머지 공란, 색상만 다르게
+ * - Hiring: 이름 "채용 예정", title은 표시, email/phone은 공란
  */
 function createMemberCard(user) {
   const isHiring = user.isHiring === true || user.isHiring === 'true';
@@ -164,10 +164,14 @@ function createMemberCard(user) {
 
   const avatarWrap = document.createElement('div');
   avatarWrap.className = 'member-avatar';
-  const img = document.createElement('img');
-  img.src = user.photoUrl || '';
-  img.alt = user.name || 'profile';
-  avatarWrap.appendChild(img);
+
+  // photoUrl이 있으면 이미지를 추가, 없으면 CSS 기본 실루엣만 사용
+  if (user.photoUrl) {
+    const img = document.createElement('img');
+    img.src = user.photoUrl;
+    img.alt = user.name || 'profile';
+    avatarWrap.appendChild(img);
+  }
 
   const info = document.createElement('div');
   info.className = 'member-info';
@@ -182,9 +186,8 @@ function createMemberCard(user) {
   const phoneEl = document.createElement('div');
 
   if (isHiring) {
-    // 채용 예정자는 표시 이름만 고정, 나머지는 공란
     nameEl.textContent = '채용 예정';
-    titleEl.textContent = '';
+    titleEl.textContent = user.title || '';
     emailEl.textContent = '';
     phoneEl.textContent = '';
   } else {

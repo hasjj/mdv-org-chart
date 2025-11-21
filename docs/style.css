@@ -1,4 +1,4 @@
-/* 기본 레이아웃 */
+/* 기본 */
 
 * {
   box-sizing: border-box;
@@ -11,33 +11,7 @@ body {
   color: #111827;
 }
 
-.app-header {
-  padding: 16px;
-  text-align: center;
-  background: #111827;
-  color: #f9fafb;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
-.app-subtitle {
-  margin-top: 4px;
-  font-size: 0.85rem;
-  color: #9ca3af;
-}
-
-.app-footer {
-  padding: 8px 12px 16px;
-  text-align: center;
-  font-size: 0.75rem;
-  color: #9ca3af;
-}
-
-/* 조직도 컨테이너 (Notion embed 친화) */
+/* Notion embed 친화적인 컨테이너 */
 
 .org-root {
   padding: 16px;
@@ -120,6 +94,9 @@ body {
   color: #166534;
 }
 
+/* 프로필 아바타 */
+/* 이미지 없을 때는 이 실루엣이 보이고, 이미지가 있으면 덮어쓴다 */
+
 .member-avatar {
   width: 44px;
   height: 44px;
@@ -128,6 +105,9 @@ body {
   flex-shrink: 0;
   border: 2px solid #e5e7eb;
   background-color: #e5e7eb;
+  background-image: url("https://www.gravatar.com/avatar/?d=mp&f=y");
+  background-size: cover;
+  background-position: center;
 }
 
 .member-avatar img {
@@ -136,6 +116,8 @@ body {
   object-fit: cover;
   display: block;
 }
+
+/* 멤버 텍스트 */
 
 .member-info {
   min-width: 0;
@@ -164,7 +146,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* 반응형: Notion 안 작은 폭에서도 보기 좋게 */
+/* 반응형 */
 
 @media (max-width: 768px) {
   .org-root {
