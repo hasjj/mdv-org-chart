@@ -1,5 +1,6 @@
 // Google Apps Script 웹 앱 URL (doGet이 연결된 URL로 교체)
-const SCRIPT_BASE_URL = 'https://script.google.com/macros/s/AKfycbxm9uGPc4oxk8_9tkChDlpNM_QmhrX0jp3zq5q5d4ZtYxAwz-fxYF8-_hf1GoYB2wgu/exec';
+const SCRIPT_BASE_URL =
+  'https://script.google.com/macros/s/AKfycbxm9uGPc4oxk8_9tkChDlpNM_QmhrX0jp3zq5q5d4ZtYxAwz-fxYF8-_hf1GoYB2wgu/exec';
 
 document.addEventListener('DOMContentLoaded', () => {
   const rootEl = document.getElementById('org-root');
@@ -21,7 +22,6 @@ async function loadOrgData(rootEl) {
     rootEl.appendChild(treeDom);
 
     // 2) 백그라운드에서 최신 Directory → Sheet 동기화 트리거
-    //    (다음 접속 시에는 더 최신 데이터가 반영되도록)
     fetch(SCRIPT_BASE_URL + '?action=refresh')
       .then(() => {
         console.log('Background sync triggered');
@@ -31,7 +31,8 @@ async function loadOrgData(rootEl) {
       });
   } catch (err) {
     console.error(err);
-    rootEl.innerHTML = '<div class="loading">데이터를 불러오는 중 오류가 발생했습니다.</div>';
+    rootEl.innerHTML =
+      '<div class="loading">데이터를 불러오는 중 오류가 발생했습니다. 콘솔을 확인해 주세요.</div>';
   }
 }
 
@@ -80,7 +81,7 @@ function buildOrgTree(users) {
 function renderOrgTree(tree) {
   // ROOT의 children들을 최상위로
   const container = document.createElement('div');
-  container.className = 'org-group org-group-root depth-0';
+  container.className = 'org-group org-group-root';
 
   const childrenKeys = Object.keys(tree.children);
   if (childrenKeys.length === 0 && tree.members.length === 0) {
@@ -108,15 +109,11 @@ function renderOrgNode(node, depth) {
   const groupEl = document.createElement('div');
   groupEl.className = 'org-group depth-' + (depth + 1);
 
-  // 그룹 헤더
+  // 그룹 헤더 (Level 표시 제거, 그룹 이름만)
   const headerEl = document.createElement('div');
   headerEl.className = 'org-group-header';
-  const depthBadge = document.createElement('span');
-  depthBadge.className = 'badge-depth';
-  depthBadge.textContent = 'Level ' + (depth + 1);
   const titleSpan = document.createElement('span');
   titleSpan.textContent = node.name;
-  headerEl.appendChild(depthBadge);
   headerEl.appendChild(titleSpan);
   groupEl.appendChild(headerEl);
 
