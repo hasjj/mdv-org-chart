@@ -1,145 +1,211 @@
-const API_BASE =
-  "https://script.google.com/macros/s/AKfycbxm9uGPc4oxk8_9tkChDlpNM_QmhrX0jp3zq5q5d4ZtYxAwz-fxYF8-_hf1GoYB2wgu/exec";
+// Google Apps Script 웹 앱 URL (doGet이 연결된 URL로 교체)
+const SCRIPT_BASE_URL = 'https://script.google.com/macros/s/AKfycbxm9uGPc4oxk8_9tkChDlpNM_QmhrX0jp3zq5q5d4ZtYxAwz-fxYF8-_hf1GoYB2wgu/exec';
 
-const EMP_API = `${API_BASE}?tab=employees`;
-const HIRING_API = `${API_BASE}?tab=hiring`;
+document.addEventListener('DOMContentLoaded', () => {
+  const rootEl = document.getElementById('org-root');
+  loadOrgData(rootEl);
+});
 
-async function loadData() {
+async function loadOrgData(rootEl) {
   try {
-    const [empRes, hirRes] = await Promise.all([
-      fetch(EMP_API),
-      fetch(HIRING_API),
-    ]);
+    rootEl.innerHTML = '<div class="loading">조직도 데이터를 불러오는 중...</div>';
 
-    const employees = await empRes.json();
-    const hiring = await hirRes.json();
+    // 1) 현재 시트에 있는 데이터로 빠르게 로딩
+    const dataRes = await fetch(SCRIPT_BASE_URL);
+    const dataJson = await dataRes.json();
+    const users = dataJson.users || [];
 
-    renderOrgChart(employees, hiring);
+    const tree = buildOrgTree(users);
+    rootEl.innerHTML = '';
+    const treeDom = renderOrgTree(tree);
+    rootEl.appendChild(treeDom);
+
+    // 2) 백그라운드에서 최신 Directory → Sheet 동기화 트리거
+    //    (다음 접속 시에는 더 최신 데이터가 반영되도록)
+    fetch(SCRIPT_BASE_URL + '?action=refresh')
+      .then(() => {
+        console.log('Background sync triggered');
+      })
+      .catch(err => {
+        console.warn('Background sync error', err);
+      });
   } catch (err) {
-    console.error("Error loading data:", err);
-    const container = document.getElementById("org-chart");
-    if (container) {
-      container.innerHTML =
-        "<div>데이터를 불러오는 중 오류가 발생했습니다. 콘솔을 확인해 주세요.</div>";
+    console.error(err);
+    rootEl.innerHTML = '<div class="loading">데이터를 불러오는 중 오류가 발생했습니다.</div>';
+  }
+}
+
+/**
+ * OrgUnitPath 기반으로 트리 구조 만들기
+ * - /A/B/C → ROOT > A > B > C 노드
+ * - 해당 경로에 속한 사용자들은 마지막 노드(C)에 members로 배치
+ */
+function buildOrgTree(users) {
+  const root = {
+    name: 'ROOT',
+    children: {},
+    members: []
+  };
+
+  users.forEach(function(user) {
+    const path = (user.orgUnitPath || '').trim();
+    if (!path) {
+      root.members.push(user);
+      return;
     }
-  }
-}
 
-// orgUnitPath를 레벨별로 분해해서 상위/하위 그룹 이름을 뽑는 헬퍼
-// 예: "/CEO/Strategic Planning" -> { level1: "CEO", level2: "Strategic Planning" }
-//     "/CEO" -> { level1: "CEO", level2: "" }
-//     "/" 또는 빈 값 -> { level1: "기타", level2: "" }
-function parseOrgPath(orgUnitPath) {
-  if (!orgUnitPath || orgUnitPath === "/") {
-    return { level1: "기타", level2: "" };
-  }
-  const segments = orgUnitPath.split("/").filter(Boolean);
-  if (!segments.length) {
-    return { level1: "기타", level2: "" };
-  }
-  const level1 = segments[0] || "기타";
-  const level2 = segments[1] || "";
-  return { level1, level2 };
-}
+    const segments = path.split('/').filter(function(s) { return s; });
 
-// orgUnitPath 기준 계층 + 그룹만 사용해서 렌더링
-// - level1: 예) CEO, HQ ... → 최상위 섹션 라벨
-// - level2: 예) Strategic Planning, R&D ... → 섹션 안의 그룹 라벨
-// managerEmail은 아직 계층 종속에 사용하지 않음
-function renderOrgChart(employees, hiring) {
-  const container = document.getElementById("org-chart");
-  if (!container) return;
+    let current = root;
+    segments.forEach(function(seg) {
+      if (!current.children[seg]) {
+        current.children[seg] = {
+          name: seg,
+          children: {},
+          members: []
+        };
+      }
+      current = current.children[seg];
+    });
 
-  // employees + hiring 을 하나의 리스트로 묶고 org 정보 주입
-  const items = [
-    ...employees.map((e) => ({
-      ...e,
-      isHiring: false,
-      ...parseOrgPath(e.orgUnitPath),
-    })),
-    ...hiring.map((h) => ({
-      ...h,
-      isHiring: true,
-      ...parseOrgPath(h.orgUnitPath),
-    })),
-  ];
-
-  // CEO 레벨과 그 외 레벨 분리
-  const ceoItems = items.filter(
-    (it) => it.orgUnitPath === "/CEO" || it.level1 === "CEO"
-  );
-  const others = items.filter((it) => !ceoItems.includes(it));
-
-  // 기타 그룹: CEO를 제외한 나머지 level1 값 기준
-  const groupMap = new Map();
-  others.forEach((item) => {
-    const key = item.level1 || "기타";
-    if (!groupMap.has(key)) groupMap.set(key, []);
-    groupMap.get(key).push(item);
+    current.members.push(user);
   });
 
-  const sortByName = (a, b) => (a.name || "").localeCompare(b.name || "");
-  ceoItems.sort(sortByName);
-
-  const groupNames = Array.from(groupMap.keys()).sort();
-
-  const ceoRowHtml = ceoItems.length
-    ? `<div class="tree root-row">${ceoItems
-        .map((it) => cardHTML(it, it.isHiring))
-        .join("")}</div>`
-    : "";
-
-  const groupsHtml = groupNames
-    .map((groupName) => {
-      const groupItems = groupMap.get(groupName) || [];
-      groupItems.sort(sortByName);
-      const cards = groupItems
-        .map((it) => cardHTML(it, it.isHiring))
-        .join("");
-      return `
-        <div class="subgroup">
-          <h3 class="subgroup-title">${groupName}</h3>
-          <div class="tree">${cards}</div>
-        </div>
-      `;
-    })
-    .join("");
-
-  container.innerHTML = `
-    <section class="dept dept-root">
-      <h2 class="dept-title dept-title-root">CEO</h2>
-      ${ceoRowHtml}
-      ${ceoItems.length && groupNames.length ? '<div class="root-connector"></div>' : ""}
-      <div class="child-groups">${groupsHtml}</div>
-    </section>
-  `;
+  return root;
 }
 
-// 카드 UI (표시 정보)
-// 요구사항: Manager 는 표시하지 않고, Title + Email 위주
-function cardHTML(row, isHiring) {
-  const klass = isHiring ? "card hiring" : "card";
+/**
+ * 트리 구조를 DOM으로 렌더링
+ */
+function renderOrgTree(tree) {
+  // ROOT의 children들을 최상위로
+  const container = document.createElement('div');
+  container.className = 'org-group org-group-root depth-0';
 
-  const displayName = isHiring
-    ? `🔍 Hiring: ${row.title}`
-    : row.name || "(이름 없음)";
+  const childrenKeys = Object.keys(tree.children);
+  if (childrenKeys.length === 0 && tree.members.length === 0) {
+    container.textContent = '조직도 데이터가 없습니다.';
+    return container;
+  }
 
-  const titleLine = row.title
-    ? `<div class="card-line">${row.title}</div>`
-    : "";
-  const emailLine = row.email
-    ? `<div class="card-line">${row.email}</div>`
-    : "";
+  const childrenWrapper = document.createElement('div');
+  childrenWrapper.className = 'org-children';
 
-  return `
-    <div class="${klass}">
-      <div class="card-title">${displayName}</div>
-      <div class="card-body">
-        ${titleLine}
-        ${emailLine}
-      </div>
-    </div>
-  `;
+  childrenKeys.forEach(function(key) {
+    const childNode = tree.children[key];
+    const childDom = renderOrgNode(childNode, 0);
+    childrenWrapper.appendChild(childDom);
+  });
+
+  container.appendChild(childrenWrapper);
+  return container;
 }
 
-loadData();
+/**
+ * 개별 그룹 노드를 재귀적으로 렌더링
+ */
+function renderOrgNode(node, depth) {
+  const groupEl = document.createElement('div');
+  groupEl.className = 'org-group depth-' + (depth + 1);
+
+  // 그룹 헤더
+  const headerEl = document.createElement('div');
+  headerEl.className = 'org-group-header';
+  const depthBadge = document.createElement('span');
+  depthBadge.className = 'badge-depth';
+  depthBadge.textContent = 'Level ' + (depth + 1);
+  const titleSpan = document.createElement('span');
+  titleSpan.textContent = node.name;
+  headerEl.appendChild(depthBadge);
+  headerEl.appendChild(titleSpan);
+  groupEl.appendChild(headerEl);
+
+  // 멤버 카드 영역
+  if (node.members && node.members.length > 0) {
+    const membersEl = document.createElement('div');
+    membersEl.className = 'org-members';
+
+    node.members.forEach(function(user) {
+      const card = createMemberCard(user);
+      membersEl.appendChild(card);
+    });
+
+    groupEl.appendChild(membersEl);
+  }
+
+  // 하위 그룹
+  const childKeys = Object.keys(node.children || {});
+  if (childKeys.length > 0) {
+    const childrenEl = document.createElement('div');
+    childrenEl.className = 'org-children';
+
+    childKeys.forEach(function(key) {
+      const childNode = node.children[key];
+      const childDom = renderOrgNode(childNode, depth + 1);
+      childrenEl.appendChild(childDom);
+    });
+
+    groupEl.appendChild(childrenEl);
+  }
+
+  return groupEl;
+}
+
+/**
+ * 구성원 카드 생성
+ * - 일반: name, title, email, cellphone
+ * - Hiring: 이름 "채용 예정", 나머지 공란, 색상만 다르게
+ */
+function createMemberCard(user) {
+  const isHiring = user.isHiring === true || user.isHiring === 'true';
+
+  const card = document.createElement('div');
+  card.className = 'member-card';
+  if (isHiring) {
+    card.classList.add('hiring');
+  }
+
+  const avatarWrap = document.createElement('div');
+  avatarWrap.className = 'member-avatar';
+  const img = document.createElement('img');
+  img.src = user.photoUrl || '';
+  img.alt = user.name || 'profile';
+  avatarWrap.appendChild(img);
+
+  const info = document.createElement('div');
+  info.className = 'member-info';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'member-name';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'member-title';
+  const meta = document.createElement('div');
+  meta.className = 'member-meta';
+  const emailEl = document.createElement('div');
+  const phoneEl = document.createElement('div');
+
+  if (isHiring) {
+    // 채용 예정자는 표시 이름만 고정, 나머지는 공란
+    nameEl.textContent = '채용 예정';
+    titleEl.textContent = '';
+    emailEl.textContent = '';
+    phoneEl.textContent = '';
+  } else {
+    nameEl.textContent = user.name || '';
+    titleEl.textContent = user.title || '';
+    emailEl.textContent = user.email || '';
+    phoneEl.textContent = user.cellphone || '';
+  }
+
+  meta.appendChild(emailEl);
+  meta.appendChild(phoneEl);
+
+  info.appendChild(nameEl);
+  info.appendChild(titleEl);
+  info.appendChild(meta);
+
+  card.appendChild(avatarWrap);
+  card.appendChild(info);
+
+  return card;
+}
