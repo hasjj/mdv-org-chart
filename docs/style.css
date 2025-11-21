@@ -23,7 +23,7 @@ body {
   padding: 16px;
   max-width: 1000px;
   height: 100%;
-  max-height: 650px;          /* 노션 iframe 안에서 너무 길어지지 않도록 */
+  max-height: 1100px;          /* 노션 iframe 안에서 너무 길어지지 않도록 */
   margin: 0 auto;
   overflow-y: auto;           /* 내용이 많으면 내부 스크롤 */
 }
