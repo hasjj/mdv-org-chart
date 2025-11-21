@@ -11,13 +11,21 @@ body {
   color: #111827;
 }
 
-/* Notion embed 친화적인 레이아웃 컨테이너 */
-/* 바깥 테두리/박스 없이, 내용만 정렬 */
+/* Notion embed 친화적인 레이아웃 컨테이너
+   - 가로는 가운데 정렬
+   - 세로는 최대 높이까지, 내부 스크롤로 처리
+*/
 
 .org-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;        /* 전체를 가운데 정렬 */
   padding: 16px;
   max-width: 1000px;
-  margin: 0 auto 24px auto;
+  height: 100%;
+  max-height: 650px;          /* 노션 iframe 안에서 너무 길어지지 않도록 */
+  margin: 0 auto;
+  overflow-y: auto;           /* 내용이 많으면 내부 스크롤 */
 }
 
 .loading {
@@ -25,22 +33,23 @@ body {
   color: #6b7280;
 }
 
-/* 그룹 박스 (부서/팀 박스) */
+/* 그룹 박스 (부서/팀/CEO 공통)
+   - 너비 고정해서 카드 사이즈 통일
+*/
 
 .org-group {
+  width: 280px;              /* 모든 그룹(CEO 포함) 동일 폭 */
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 12px;
   background-color: #ffffff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-  min-width: 260px;
 }
 
-/* CEO 박스는 가운데 위치 느낌을 위해 margin 조정 */
+/* CEO 박스는 위에 하나만, 아래에 부서 라인을 두기 위해 margin만 처리 */
 
 .org-group-ceo {
-  max-width: 360px;
-  margin: 0 auto 16px auto;
+  margin-bottom: 16px;
 }
 
 /* 그룹 헤더 */
@@ -66,26 +75,21 @@ body {
   margin-top: 10px;
 }
 
-/* 부서 레벨 컨테이너: CEO 아래에 가로 배치 */
+/* 부서 레벨 컨테이너: CEO 아래에 가로, 가운데 배치 */
 
 .org-children-dept {
-  justify-content: flex-start;
+  justify-content: center;   /* 가운데 정렬 */
 }
 
-/* 멤버 카드 영역 */
-/* 부서별 구성원은 세로(column)로 나열 */
+/* 멤버 카드 영역
+   - 부서별 구성원은 세로(column)로 나열
+*/
 
 .org-members {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
-}
-
-/* CEO 멤버 영역은 가운데 정렬용 */
-
-.org-members-ceo {
-  align-items: stretch;
 }
 
 /* 멤버 카드 */
@@ -166,14 +170,17 @@ body {
 @media (max-width: 768px) {
   .org-layout {
     padding: 12px;
+    max-height: 600px;
   }
 
   .org-children,
   .org-children-dept {
     flex-direction: column;
+    align-items: center;
   }
 
   .org-group {
     width: 100%;
+    max-width: 320px;
   }
 }
