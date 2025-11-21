@@ -38,8 +38,11 @@ async function loadOrgData(rootEl) {
 
 /**
  * OrgUnitPath 기반으로 트리 구조 만들기
- * - /A/B/C → ROOT > A > B > C 노드
- * - 해당 경로에 속한 사용자들은 마지막 노드(C)에 members로 배치
+ * - /CEO
+ * - /CEO/R&D
+ * - /CEO/Administration
+ * - /CEO/Strategic Planning
+ * 등 → ROOT > CEO > 각 부서 노드
  */
 function buildOrgTree(users) {
   const root = {
@@ -77,33 +80,94 @@ function buildOrgTree(users) {
 
 /**
  * 트리 구조를 DOM으로 렌더링
+ * - CEO를 맨 위에 한 번 렌더링
+ * - CEO의 children(부서들)을 그 아래에 좌우로 배치
  */
 function renderOrgTree(tree) {
-  // ROOT의 children들을 최상위로
   const container = document.createElement('div');
-  container.className = 'org-group org-group-root';
+  container.className = 'org-layout';
 
-  const childrenKeys = Object.keys(tree.children);
-  if (childrenKeys.length === 0 && tree.members.length === 0) {
-    container.textContent = '조직도 데이터가 없습니다.';
-    return container;
+  const ceoNode =
+    tree.children['CEO'] ||
+    tree.children['Ceo'] ||
+    tree.children['ceo'] ||
+    null;
+
+  if (ceoNode) {
+    // 1) CEO 박스 (맨 위, 가운데 정렬 느낌)
+    if (ceoNode.members && ceoNode.members.length > 0) {
+      const ceoGroup = document.createElement('div');
+      ceoGroup.className = 'org-group org-group-ceo';
+
+      const headerEl = document.createElement('div');
+      headerEl.className = 'org-group-header';
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = 'CEO';
+      headerEl.appendChild(titleSpan);
+      ceoGroup.appendChild(headerEl);
+
+      const membersEl = document.createElement('div');
+      membersEl.className = 'org-members org-members-ceo';
+
+      ceoNode.members.forEach(function(user) {
+        const card = createMemberCard(user);
+        membersEl.appendChild(card);
+      });
+
+      ceoGroup.appendChild(membersEl);
+      container.appendChild(ceoGroup);
+    }
+
+    // 2) 부서 박스들 (CEO 하위 children들을 좌우 배치)
+    const deptWrapper = document.createElement('div');
+    deptWrapper.className = 'org-children org-children-dept';
+
+    const order = ['Administration', 'R&D', 'Strategic Planning'];
+    const deptKeys = Object.keys(ceoNode.children || {});
+    deptKeys.sort(function(a, b) {
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      if (ia === -1 && ib === -1) {
+        return a.localeCompare(b);
+      }
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+
+    deptKeys.forEach(function(key) {
+      const childNode = ceoNode.children[key];
+      const childDom = renderOrgNode(childNode, 1);
+      deptWrapper.appendChild(childDom);
+    });
+
+    container.appendChild(deptWrapper);
+  } else {
+    // CEO 노드를 못 찾으면 기존 방식으로 전체 children 렌더링
+    const childrenKeys = Object.keys(tree.children);
+    if (childrenKeys.length === 0 && tree.members.length === 0) {
+      container.textContent = '조직도 데이터가 없습니다.';
+      return container;
+    }
+
+    const childrenWrapper = document.createElement('div');
+    childrenWrapper.className = 'org-children';
+
+    childrenKeys.forEach(function(key) {
+      const childNode = tree.children[key];
+      const childDom = renderOrgNode(childNode, 0);
+      childrenWrapper.appendChild(childDom);
+    });
+
+    container.appendChild(childrenWrapper);
   }
 
-  const childrenWrapper = document.createElement('div');
-  childrenWrapper.className = 'org-children';
-
-  childrenKeys.forEach(function(key) {
-    const childNode = tree.children[key];
-    const childDom = renderOrgNode(childNode, 0);
-    childrenWrapper.appendChild(childDom);
-  });
-
-  container.appendChild(childrenWrapper);
   return container;
 }
 
 /**
  * 개별 그룹 노드를 재귀적으로 렌더링
+ * (부서 / 하위 팀 공용)
  */
 function renderOrgNode(node, depth) {
   const groupEl = document.createElement('div');
