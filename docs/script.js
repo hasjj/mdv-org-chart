@@ -472,7 +472,7 @@ function createDesktopCard(title, members) {
       const p = document.createElement('div');
       p.className = 'desktop-member-item';
 
-      const isHiring = user.isHiring === true || user.isHiring === 'true';
+      const isHiring = user.isHiring === true || user.isHiring === 'true' || user.isHiring === 'TRUE';
       if (isHiring) p.classList.add('hiring');
 
       // Left: Avatar
@@ -612,7 +612,7 @@ function createListGroup(title) {
 }
 
 function createMemberRow(user) {
-  const isHiring = user.isHiring === true || user.isHiring === 'true';
+  const isHiring = user.isHiring === true || user.isHiring === 'true' || user.isHiring === 'TRUE';
 
   const row = document.createElement('div');
   row.className = 'ios-list-row member-row';
