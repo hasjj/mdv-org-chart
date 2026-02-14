@@ -1,186 +1,649 @@
-/* 기본 */
+/* iOS Style Org Chart */
+
+:root {
+  --ios-bg: #F2F2F7;
+  --ios-card-bg: #FFFFFF;
+  --ios-text-primary: #000000;
+  --ios-text-secondary: #8E8E93;
+  --ios-separator: #C6C6C8;
+  --ios-blue: #007AFF;
+  --ios-header-text: #6D6D72;
+}
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: #ffffff;
-  color: #111827;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--ios-bg);
+  color: var(--ios-text-primary);
+  /* Mobile safe area text adjustment */
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Notion embed 친화적인 레이아웃 컨테이너
-   - 가로는 가운데 정렬
-   - 세로는 최대 높이까지, 내부 스크롤로 처리
-*/
-
-.org-layout {
-  display: flex;
-  flex-direction: column;
-  align-items: center;        /* 전체를 가운데 정렬 */
-  padding: 16px;
-  max-width: 1000px;
-  height: 100%;
-  max-height: 1100px;          /* 노션 iframe 안에서 너무 길어지지 않도록 */
+.app-container {
+  max-width: 600px;
   margin: 0 auto;
-  overflow-y: auto;           /* 내용이 많으면 내부 스크롤 */
-}
-
-.loading {
-  text-align: center;
-  color: #6b7280;
-}
-
-/* 그룹 박스 (부서/팀/CEO 공통)
-   - 너비 고정해서 카드 사이즈 통일
-*/
-
-.org-group {
-  width: 280px;              /* 모든 그룹(CEO 포함) 동일 폭 */
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px;
-  background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-}
-
-/* CEO 박스는 위에 하나만, 아래에 부서 라인을 두기 위해 margin만 처리 */
-
-.org-group-ceo {
-  margin-bottom: 16px;
-}
-
-/* 그룹 헤더 */
-
-.org-group-header {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-/* 같은 레벨 그룹은 가로 정렬 */
-
-.org-children {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-/* 부서 레벨 컨테이너: CEO 아래에 가로, 가운데 배치 */
-
-.org-children-dept {
-  justify-content: center;   /* 가운데 정렬 */
-}
-
-/* 멤버 카드 영역
-   - 부서별 구성원은 세로(column)로 나열
-*/
-
-.org-members {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
 }
 
-/* 멤버 카드 */
-
-.member-card {
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  padding: 10px;
+/* Header */
+.app-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: #f9fafb;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background-color: var(--ios-bg);
+  /* Sticky header if needed */
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(242, 242, 247, 0.85);
 }
 
-.member-card.hiring {
-  background: #ecfdf3;
-  border-color: #bbf7d0;
+.app-header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ios-text-primary);
 }
 
-.member-card.hiring .member-name {
-  color: #166534;
+.sync-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ios-blue);
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* 프로필 아바타 */
-/* 이미지 없을 때는 이 실루엣이 보이고, 이미지가 있으면 덮어쓴다 */
+.sync-btn:active {
+  background-color: rgba(0, 122, 255, 0.1);
+  opacity: 0.7;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  color: white;
+  font-weight: 500;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Org Layout - iOS Grouped List */
+.org-container {
+  padding: 0 16px 40px 16px;
+}
+
+.ios-section {
+  margin-bottom: 24px;
+}
+
+.ios-section-header {
+  font-size: 13px;
+  color: var(--ios-header-text);
+  margin-bottom: 8px;
+  margin-left: 16px;
+  text-transform: uppercase;
+  font-weight: 400;
+}
+
+.ios-list {
+  background-color: var(--ios-card-bg);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ios-list-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--ios-card-bg);
+  position: relative;
+}
+
+/* Separator line logic */
+.ios-list-row:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 60px;
+  /* Avatar width + gap */
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background-color: var(--ios-separator);
+  transform: scaleY(0.5);
+  /* Retina hairpin line */
+}
+
+.sub-header-row {
+  background-color: #f9f9f9;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ios-text-primary);
+  padding-left: 16px;
+}
+
+.sub-header-row::after {
+  left: 16px !important;
+}
+
+.member-row {
+  transition: background-color 0.2s;
+}
+
+.member-row:active {
+  background-color: #E5E5EA;
+  /* Touch highlight */
+}
 
 .member-avatar {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  border: 2px solid #e5e7eb;
-  background-color: #e5e7eb;
-  background-image: url("https://www.gravatar.com/avatar/?d=mp&f=y");
   background-size: cover;
   background-position: center;
+  background-color: #E5E5EA;
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 
-.member-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.member-avatar.default {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #8E8E93;
+  font-size: 14px;
+}
+
+.member-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+}
+
+.name-row {
+  margin-bottom: 2px;
+}
+
+.contact-row {
+  font-size: 13px;
+  color: var(--ios-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  /* 줄바꿈 방지 */
+}
+
+.row-name {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ios-text-primary);
+}
+
+.row-title {
+  font-size: 14px;
+  color: var(--ios-text-secondary);
+  margin-left: 6px;
+}
+
+.row-arrow {
+  margin-left: 8px;
+  opacity: 0.5;
+}
+
+/* Hiring state */
+.member-row.hiring .row-name {
+  color: #34C759;
+  /* Green for hiring */
+}
+
+.member-row.hiring .member-avatar {
+  background-color: #ECFDF3;
+  color: #34C759;
+  border: 1px solid #bbf7d0;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+
+/* Mobile First: Default is Mobile View */
+.desktop-view-container {
+  display: none;
+}
+
+.mobile-view-container {
   display: block;
 }
 
-/* 멤버 텍스트 */
+/* Desktop View (Traditional Org Chart) */
+@media (min-width: 1200px) {
+  .mobile-view-container {
+    display: none;
+  }
 
-.member-info {
+  .desktop-view-container {
+    display: block;
+    overflow-x: auto;
+    padding: 40px;
+    text-align: center;
+  }
+
+  .app-container {
+    max-width: 100% !important;
+    /* expand container */
+  }
+
+  /* Tree CSS */
+  .tf-tree ul {
+    display: inline-flex;
+    padding-top: 20px;
+    position: relative;
+    transition: all 0.5s;
+    -webkit-transition: all 0.5s;
+    -moz-transition: all 0.5s;
+  }
+
+  .tf-tree li {
+    /* Flexbox for vertical stacking of Card + Children */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    text-align: center;
+    list-style-type: none;
+    position: relative;
+    padding: 20px 5px 0 5px;
+    /* Reduced side padding */
+
+    transition: all 0.5s;
+    -webkit-transition: all 0.5s;
+    -moz-transition: all 0.5s;
+  }
+
+  /* We will use ::before and ::after to draw the connectors */
+
+  .tf-tree li::before,
+  .tf-tree li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 50%;
+    border-top: 1px solid #ccc;
+    width: 50%;
+    height: 20px;
+  }
+
+  .tf-tree li::after {
+    right: auto;
+    left: 50%;
+    border-left: 1px solid #ccc;
+  }
+
+  /* We need to remove left-right connectors from elements without 
+  any siblings */
+  .tf-tree li:only-child::after,
+  .tf-tree li:only-child::before {
+    display: none;
+  }
+
+  /* Remove space from the top of single children */
+  .tf-tree li:only-child {
+    padding-top: 0;
+  }
+
+  /* Remove left connector from first child and 
+  right connector from last child */
+  .tf-tree li:first-child::before,
+  .tf-tree li:last-child::after {
+    border: 0 none;
+  }
+
+  /* Adding back the vertical connector to the last nodes */
+  .tf-tree li:last-child::before {
+    border-right: 1px solid #ccc;
+    border-radius: 0 5px 0 0;
+    -webkit-border-radius: 0 5px 0 0;
+    -moz-border-radius: 0 5px 0 0;
+  }
+
+  .tf-tree li:first-child::after {
+    border-radius: 5px 0 0 0;
+    -webkit-border-radius: 5px 0 0 0;
+    -moz-border-radius: 5px 0 0 0;
+  }
+
+  /* Time to add downward connectors from parents */
+  .tf-tree ul ul::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    border-left: 1px solid #ccc;
+    width: 0;
+    height: 20px;
+  }
+
+  /* Ensure the vertical line connects to the card in flex layout */
+  .tf-tree li .tf-nc {
+    margin-bottom: 20px;
+    /* Space for the connector to children */
+    position: relative;
+    z-index: 2;
+  }
+
+  /* The Node Card */
+  .tf-nc {
+    display: inline-block;
+    border: 1px solid #e2e2e7;
+    background-color: #ffffff;
+    padding: 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.3s;
+    -webkit-transition: all 0.3s;
+    -moz-transition: all 0.3s;
+    min-width: 180px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  }
+
+  .tf-nc:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .desktop-node-title {
+    font-weight: 700;
+    color: var(--ios-blue);
+    margin-bottom: 10px;
+    font-size: 14px;
+    text-transform: uppercase;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .desktop-member-list {
+    text-align: left;
+  }
+
+  /* Hide original header in desktop (replaced by tree-aligned one) */
+  .app-header {
+    display: none;
+  }
+
+  /* Wrapper shrinks to tree width so header aligns */
+  .desktop-tree-wrapper {
+    display: inline-block;
+    text-align: center;
+  }
+
+  /* Desktop header aligned with tree content */
+  .desktop-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 8px;
+    margin-bottom: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: rgba(242, 242, 247, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .desktop-header h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color: var(--ios-text-primary);
+    margin: 0;
+  }
+
+  .desktop-header .sync-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ios-blue);
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .desktop-header .sync-btn:hover {
+    background-color: rgba(0, 122, 255, 0.08);
+  }
+}
+
+/* Links in Mobile View */
+.contact-link {
+  color: var(--ios-blue);
+  text-decoration: none;
+  position: relative;
+  z-index: 2;
+}
+
+.contact-link:hover {
+  text-decoration: underline;
+}
+
+
+/* ===== Desktop Member Card (Flexbox) ===== */
+
+.desktop-member-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #e1e1e3;
+  border-radius: 10px;
+  background: #fff;
+  width: 100%;
+  min-width: 290px;
+  text-align: left;
+  margin-bottom: 8px;
+  gap: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.desktop-member-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+.desktop-member-item.hiring {
+  border-style: dashed;
+  background-color: #fcfcfc;
+}
+
+.d-avatar-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: #f2f2f7;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #efeff4;
+  font-size: 18px;
+  color: #8E8E93;
+  font-weight: 600;
+}
+
+.d-avatar-wrapper.default {
+  background-color: #e5e5ea;
+}
+
+.d-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.d-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
   min-width: 0;
 }
 
-.member-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #111827;
+.d-line-primary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 2px;
 }
 
-.member-title {
-  font-size: 0.8rem;
-  color: #6b7280;
+.d-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c1c1e;
+  white-space: nowrap;
 }
 
-.member-meta {
-  margin-top: 4px;
-  font-size: 0.75rem;
-  color: #4b5563;
+.d-title {
+  font-size: 13px;
+  color: #3a3a3c;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: 2px;
 }
 
-.member-meta div {
+.d-sep {
+  color: #c7c7cc;
+  font-size: 11px;
+}
+
+.d-dept {
+  font-size: 12px;
+  color: #8E8E93;
+  background-color: #f2f2f7;
+  padding: 2px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.d-line-sub {
+  font-size: 13px;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* 반응형 */
+.d-link {
+  color: #636366;
+  text-decoration: none;
+  transition: color 0.1s;
+}
 
-@media (max-width: 768px) {
-  .org-layout {
-    padding: 12px;
-    max-height: 600px;
-  }
+.d-link:hover {
+  color: var(--ios-blue);
+  cursor: pointer;
+}
 
-  .org-children,
-  .org-children-dept {
-    flex-direction: column;
-    align-items: center;
-  }
+.tf-nc {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
 
-  .org-group {
-    width: 100%;
-    max-width: 320px;
-  }
+.desktop-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.desktop-node-title {
+  text-align: center;
+  margin-bottom: 12px;
+  background: #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ios-blue);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }

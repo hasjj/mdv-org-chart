@@ -1,16 +1,35 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Modigence Vision Org Chart</title>
+  <title>ModigenceVision Org Chart</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-  <div id="org-root" class="org-root">
-    <div class="loading">조직도 데이터를 불러오는 중...</div>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>ModigenceVision</h1>
+      <button id="sync-btn" class="sync-btn">
+        ↻ 동기화
+      </button>
+    </header>
+
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="spinner"></div>
+      <p>조직도 최신화 중...</p>
+    </div>
+
+    <div id="org-root" class="org-layout">
+      <div class="loading-message">조직도 데이터를 불러오는 중...</div>
+    </div>
   </div>
+
+  <div id="toast" class="toast hidden"></div>
 
   <script src="script.js"></script>
 </body>
+
 </html>

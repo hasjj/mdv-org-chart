@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>조직도 관리자 (채용 예정)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        body {
+            background-color: #f5f5f7;
+            padding: 20px;
+        }
+
+        .admin-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d1d6;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #007aff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+        }
+
+        button.delete-btn {
+            background-color: #ff3b30;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="admin-container">
+        <h1>채용 예정자 관리</h1>
+
+        <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3>새로 추가하기</h3>
+            <div class="form-group">
+                <label>이름 (예: 채용 예정, OOO 입사 예정)</label>
+                <input type="text" id="v-name" value="채용 예정">
+            </div>
+            <div class="form-group">
+                <label>직함 (예: Backend Engineer)</label>
+                <input type="text" id="v-title" placeholder="Backend Engineer">
+            </div>
+            <div class="form-group">
+                <label>소속 팀 선택</label>
+                <select id="v-org-select"
+                    style="width: 100%; padding: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #d1d1d6; background: white;">
+                    <option value="">팀 정보를 불러오는 중...</option>
+                </select>
+                <!-- 직접 입력 기능도 남겨둠 (선택지에 없을 경우 대비) -->
+                <div style="margin-top: 5px;">
+                    <input type="text" id="v-org-input" placeholder="또는 직접 입력 (예: /CEO/R&D)" style="display:none;">
+                    <button type="button" id="btn-toggle-input"
+                        style="background:none; border:none; color:#007aff; padding:0; font-size:14px; margin-top:4px; cursor:pointer;"
+                        onclick="toggleInputMode()">직접 입력하기</button>
+                </div>
+            </div>
+            <button onclick="addVacancy()" id="btn-add" style="margin-top: 10px;">추가하기</button>
+        </div>
+
+        <h3>현재 등록된 채용 예정자</h3>
+        <button onclick="loadVacancies()"
+            style="background-color: #8e8e93; font-size: 14px; margin-bottom: 10px; padding: 6px 12px;">목록 새로고침</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>이름</th>
+                    <th>직함</th>
+                    <th>소속</th>
+                    <th style="width: 60px;">관리</th>
+                </tr>
+            </thead>
+            <tbody id="vacancy-list">
+                <!-- 리스트 들어가는 곳 -->
+            </tbody>
+        </table>
+
+        <div style="margin-top: 40px; text-align: center;">
+            <a href="index.html" style="color: #007aff; text-decoration: none;">← 조직도 화면으로 돌아가기</a>
+        </div>
+    </div>
+
+    <div id="loading" class="loading-overlay hidden">
+        <div style="background:white; padding:20px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+            Processing...</div>
+    </div>
+
+    <script>
+        // script.js와 동일한 URL 사용
+        const SCRIPT_BASE_URL = 'https://script.google.com/macros/s/AKfycbxahRL-rkoLdTcfig8HCrJIm8mOZ2SinG6D8Iqi9gQgzITWvUuLo88lpkcOvtWY0ryU/exec';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVacancies();
+            loadDepartments();
+        });
+
+        async function loadDepartments() {
+            const select = document.getElementById('v-org-select');
+            try {
+                // 전체 조직도 데이터를 가져와서 부서 목록 추출
+                const res = await fetch(SCRIPT_BASE_URL + '?t=' + Date.now());
+                const json = await res.json();
+                const users = json.users || [];
+
+                // orgUnitPath 추출 및 중복 제거
+                const paths = new Set();
+                users.forEach(u => {
+                    if (u.orgUnitPath && u.orgUnitPath !== '/') {
+                        paths.add(u.orgUnitPath);
+                    }
+                });
+
+                // 정렬
+                const sortedPaths = Array.from(paths).sort();
+
+                // 옵션 생성
+                select.innerHTML = '<option value="">소속 팀을 선택하세요</option>';
+                sortedPaths.forEach(path => {
+                    const option = document.createElement('option');
+                    option.value = path;
+                    // 경로 중 마지막 팀명만 강조해서 보여주기
+                    const parts = path.split('/');
+                    const teamName = parts[parts.length - 1];
+                    option.textContent = `${teamName} (${path})`;
+                    select.appendChild(option);
+                });
+
+            } catch (err) {
+                console.error(err);
+                select.innerHTML = '<option value="">부서 목록 로드 실패</option>';
+            }
+        }
+
+        let isInputMode = false;
+        function toggleInputMode() {
+            isInputMode = !isInputMode;
+            const select = document.getElementById('v-org-select');
+            const input = document.getElementById('v-org-input');
+            const btn = document.getElementById('btn-toggle-input');
+
+            if (isInputMode) {
+                select.style.display = 'none';
+                input.style.display = 'block';
+                btn.textContent = '목록에서 선택하기';
+            } else {
+                select.style.display = 'block';
+                input.style.display = 'none';
+                btn.textContent = '직접 입력하기';
+            }
+        }
+
+        async function loadVacancies() {
+            showLoading(true);
+            try {
+                const res = await fetch(SCRIPT_BASE_URL + '?action=getVacancies&t=' + Date.now());
+                const json = await res.json();
+                renderList(json.vacancies || []);
+            } catch (err) {
+                alert('목록 로드 실패: ' + err);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function addVacancy() {
+            const name = document.getElementById('v-name').value;
+            const title = document.getElementById('v-title').value;
+
+            let org = '';
+            if (isInputMode) {
+                org = document.getElementById('v-org-input').value;
+            } else {
+                org = document.getElementById('v-org-select').value;
+            }
+
+            if (!name || !title || !org) {
+                alert('모든 필드를 입력해주세요.');
+                return;
+            }
+
+            showLoading(true);
+            try {
+                // POST to GAS (Avoid CORS preflight by using simple fetch)
+                const payload = {
+                    action: 'addVacancy',
+                    name: name,
+                    title: title,
+                    orgUnitPath: org
+                };
+
+                // 중요: GAS doPost는 text/plain으로 보내면 다루기 쉬움 (CORS preflight 없음)
+                await fetch(SCRIPT_BASE_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                alert('추가되었습니다.');
+                // 입력창 초기화
+                document.getElementById('v-name').value = '채용 예정';
+                document.getElementById('v-title').value = '';
+                // document.getElementById('v-org').value = ''; // This line is removed as v-org input is replaced
+
+                // 목록 갱신
+                loadVacancies();
+            } catch (err) {
+                alert('추가 실패: ' + err);
+                console.error(err);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function deleteVacancy(rowIndex) {
+            if (!confirm('정말 삭제하시겠습니까?')) return;
+
+            showLoading(true);
+            try {
+                const payload = {
+                    action: 'deleteVacancy',
+                    index: rowIndex // 1-based index from getVacancies
+                };
+
+                await fetch(SCRIPT_BASE_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                alert('삭제되었습니다.');
+                loadVacancies();
+            } catch (err) {
+                alert('삭제 실패: ' + err);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function renderList(list) {
+            const tbody = document.getElementById('vacancy-list');
+            tbody.innerHTML = '';
+
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">데이터가 없습니다.</td></tr>';
+                return;
+            }
+
+            list.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+      <td>${item.name}</td>
+      <td>${item.title}</td>
+      <td>${item.orgUnitPath}</td>
+      <td>
+        <button class="delete-btn" onclick="deleteVacancy(${item.id})">삭제</button>
+      </td>
+    `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function showLoading(show) {
+            const el = document.getElementById('loading');
+            if (show) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        // 초기 로딩
+        document.addEventListener('DOMContentLoaded', loadVacancies);
+    </script>
+
+</body>
+
+</html>
